@@ -1,0 +1,253 @@
+# AI-Based Restoration of Degraded Images for Semiconductor Inspection
+### KLA Problem Statement — Hackathon 2026 (SEMICON India)
+
+Joint denoising + super-resolution model that restores NoisyLR images
+(degraded by speckle noise, additive Gaussian noise, and downsampling, in
+an undisclosed order) back to their GT resolution and quality.
+
+## Approach summary
+
+- **Architecture**: [NAFNet](https://arxiv.org/abs/2204.04676) (Chen et al.,
+  ECCV 2022, *"Simple Baselines for Image Restoration"*) encoder-decoder,
+  with a PixelShuffle super-resolution head appended so denoising and
+  upsampling happen in a single forward pass. NAFNet was chosen over
+  heavier transformer baselines (Restormer, SwinIR, Uformer) because it
+  matches or beats them on real-world denoising benchmarks while being
+  substantially cheaper to run — directly relevant to KLA's H100
+  end-to-end throughput scoring axis. See `src/model.py` for full
+  architectural rationale and code-level comments.
+- **Losses**: Charbonnier (robust L1-like reconstruction loss, standard in
+  SR/denoising literature) + SSIM loss, combined (`src/losses.py`).
+- **Metrics**: PSNR, SSIM, LPIPS (`src/metrics.py`), matching KLA's
+  required reporting set exactly.
+- **Data**: paired NoisyLR/GT `.npy` files, loaded at their **native
+  resolutions** (no downsampling of GT to match NoisyLR — the model
+  upsamples internally, so no detail is thrown away before training).
+- **Synthetic augmentation** (optional): `src/degradations.py` implements
+  speckle + Gaussian + downsampling in random order, exactly matching the
+  KLA-confirmed degradation spec, so you can generate additional
+  (NoisyLR, GT) pairs from any GT-only images.
+
+## Repository structure
+
+```
+repository/
+  README.md
+  requirements.txt
+  train.py                # training script
+  inference.py             # standalone inference script (input_dir -> output_dir)
+  validate_data.py          # run BEFORE training: checks the whole dataset for problems
+  evaluate.py                # run AFTER training: full-res PSNR/SSIM/LPIPS + baseline + examples
+  configs/
+    default.yaml              # default hyperparameters
+  src/
+    model.py                   # NAFNetSR architecture
+    dataset.py                  # paired dataset loader
+    degradations.py               # speckle/Gaussian/downsampling synthesis
+    losses.py                      # Charbonnier + SSIM training loss
+    metrics.py                      # PSNR / SSIM / LPIPS
+  weights/                # trained checkpoints go here
+  results/                # metric summaries, per-epoch logs, example restorations
+```
+
+## Setup
+
+```bash
+pip install -r requirements.txt
+```
+
+Tested with Python 3.10+, PyTorch 2.1+, CUDA 11.8/12.x. Runs on CPU too
+(slower), for debugging without a GPU.
+
+## Data layout expected
+
+```
+data/
+  train/
+    NoisyLR/000001.npy, 000002.npy, ...   # e.g. 128x128, values may exceed [0,1]
+    GT/000001.npy, 000002.npy, ...         # e.g. 256x256, values in [0,1]
+```
+
+Files are matched between `NoisyLR/` and `GT/` **by filename stem**
+(`000001.npy` in both folders = same scene). Preserve the official
+dataset's folder structure and filenames as instructed by KLA.
+
+If your GT/NoisyLR resolution ratio differs from 2×, pass `--scale <ratio>`
+to `train.py` — the model and dataset both derive their upsampling factor
+from this single argument.
+
+## Step 0 — Validate the whole dataset BEFORE training
+
+```bash
+python validate_data.py --noisy_dir data/train/NoisyLR --gt_dir data/train/GT
+```
+
+Checks, across the **entire** dataset (not a sample):
+- every NoisyLR file has a matching GT file by filename stem, and vice versa
+- every file loads without error (catches corrupt/truncated `.npy`)
+- shapes are consistent and reports the implied scale factor (tells you
+  exactly what `--scale` to pass to `train.py`) — flags any inconsistent
+  pairs if your dataset accidentally mixes resolutions
+- GT values fall within [0,1] as specified; NoisyLR out-of-range values are
+  reported as informational (expected per spec) unless wildly extreme
+
+Run this once on the full official dataset before committing to a long
+training run — catching a bad file or a resolution mismatch here takes
+seconds; catching it 80 epochs in wastes hours.
+
+## Training
+
+```bash
+python train.py \
+  --noisy_dir data/train/NoisyLR \
+  --gt_dir data/train/GT \
+  --scale 2 \
+  --patch_size 64 \
+  --batch_size 16 \
+  --epochs 100 \
+  --model_size small \
+  --ckpt_dir weights \
+  --results_dir results
+```
+
+Or via config file:
+```bash
+python train.py --config configs/default.yaml
+```
+
+- A clean validation split (`--val_split`, default 10%) is held out from
+  the **real** paired data only — never used for training or model
+  selection leakage.
+- Optional: add `--synth_from_gt_dir data/extra_gt` to mix in synthetic
+  (NoisyLR, GT) pairs generated on-the-fly from GT-only images, for extra
+  training diversity (matches KLA's "you may create extra synthetic
+  degraded pairs" allowance). Synthetic samples are used for training only.
+- The best checkpoint by validation PSNR is saved to `weights/best.pt`;
+  periodic checkpoints are also saved every `--save_every` epochs.
+- **Experiment tracking**: each run writes `results/train_config_<run_id>.json`
+  (full hyperparameters, seed, PyTorch/CUDA/GPU info) and
+  `results/train_log_<run_id>.csv` (per-epoch loss, lr, val PSNR/SSIM, wall
+  time) — this is your record for KLA's "track every experiment" requirement.
+
+## Inference (standalone, mandatory format)
+
+```bash
+python inference.py \
+  --input_dir /path/to/NoisyLR_test \
+  --output_dir /path/to/restored \
+  --checkpoint weights/best.pt \
+  --batch_size 8
+```
+
+- Accepts only `--input_dir` / `--output_dir` / `--checkpoint` as required
+  arguments — no source-code edits needed to run on new data.
+- Loads every `.npy` file in `input_dir`, restores it, and writes an
+  identically-named `.npy` file to `output_dir` (filename preserved).
+- Automatically groups inputs by shape so batches of 256×256 and 512×512
+  test images (both mentioned in the KLA spec) are handled correctly in
+  the same run.
+- Outputs are **not clipped or renormalized by default**, matching KLA's
+  stated scoring behavior ("KLA does not clip or renormalize outputs").
+  Pass `--clip` if you want [0,1]-bounded outputs for your own visual
+  inspection — do not use it for the actual scored submission unless KLA's
+  instructions say otherwise.
+- **Timing matches KLA's exact runtime definition**: disk read →
+  preprocessing → CPU→GPU transfer → model execution → GPU→CPU transfer →
+  post-processing → **saving to disk**, all inside the measured window.
+  Per-batch and aggregate timing are printed, and a full
+  `inference_runtime_report.json` (runtime, batch size, ms/image, hardware,
+  PyTorch/CUDA versions, timing methodology) is written to `output_dir`.
+- Runs on GPU automatically if available (`torch.cuda.is_available()`),
+  falls back to CPU otherwise; override with `--device cuda`/`--device cpu`.
+
+## Evaluation — full-resolution PSNR/SSIM/LPIPS + baseline + examples
+
+```bash
+python evaluate.py \
+  --noisy_dir data/val/NoisyLR --gt_dir data/val/GT \
+  --checkpoint weights/best.pt \
+  --results_dir results \
+  --num_examples 3
+```
+
+Point `--noisy_dir`/`--gt_dir` at a held-out validation set with known GT
+(NOT the hidden test set, which has no GT). This script:
+
+- Computes PSNR, SSIM, and LPIPS on **full-resolution images** (not
+  training crops) — satisfies "show restored examples at full image
+  resolution."
+- Computes the **same metrics for a bicubic-upsampling-only baseline** on
+  the same images, satisfying "compare at least one baseline with the
+  final method."
+- Writes `results/metrics_summary.json` (aggregate) and
+  `results/metrics_per_image.csv` (per-image), so both numeric summaries
+  and full detail are available.
+- Exports the best-N and worst-N restorations by PSNR (noisy / restored /
+  baseline / GT quadruplets, as `.npy`) to
+  `results/example_restorations/{best,worst}/` — satisfies "including
+  successful and failed cases."
+- LPIPS requires `pip install lpips` (already in `requirements.txt`) and a
+  one-time download of a small pretrained feature extractor on first run
+  (needs internet access once). Use `--no_lpips` to skip it if unavailable.
+
+## Design notes / limitations
+
+- The NAFNet backbone ships in `tiny` and `small` sizes (see
+  `build_model()` in `src/model.py`); `small` (~3.1M params) is the
+  default and a reasonable quality/throughput trade-off — benchmark both
+  on your validation set and report the trade-off explicitly, as required
+  by KLA's evaluation criteria.
+- The model assumes a single, fixed upsampling `scale` (inferred from your
+  GT/NoisyLR resolution ratio) for the whole dataset. `validate_data.py`
+  will flag it if your dataset mixes multiple scale factors — if so,
+  extend `dataset.py`/`model.py` to handle per-sample scale, or train
+  separate checkpoints per scale and route inputs by shape in
+  `inference.py` (the shape-grouping logic is already there to build on).
+- **No pretrained/external weights or public datasets are used** in this
+  reference implementation. If you add any (e.g. pretrained
+  NAFNet/Restormer weights, extra public training data), disclose name,
+  link, and license per KLA's requirement — update this section
+  accordingly before submission.
+- LPIPS requires `pip install lpips` and a one-time download of a small
+  pretrained feature extractor (needs internet access once).
+
+## Baseline comparison
+
+The required baseline (Section 4.D) is bicubic upsampling with no
+denoising at all — `evaluate.py` computes this automatically alongside the
+trained model's metrics on the same validation images (see above). This is
+also exactly what the model's own global residual connection uses as its
+starting point (see `NAFNetSR.forward()` in `src/model.py`).
+
+## Submission checklist (mapped to KLA's Final Submission Checklist)
+
+- [ ] Solution PPT/PPTX included (`solution_presentation.pptx`) — build
+      after a full training run using `results/metrics_summary.json` and
+      `results/example_restorations/` for content.
+- [ ] GitHub repository link accessible.
+- [ ] Only the three official degradation mechanisms treated as benchmark
+      requirements — `src/degradations.py` implements exactly speckle +
+      Gaussian + downsampling, order-randomized.
+- [ ] NoisyLR values outside [0,1] handled intentionally — not clipped
+      anywhere in the training or default inference path.
+- [ ] Inference script accepts input/output directory arguments — `inference.py`.
+- [ ] Training script reproduces the submitted checkpoint — `train.py`,
+      with full config saved to `results/train_config_<run_id>.json`.
+- [ ] Model weights/config included — `weights/best.pt` + checkpoint's
+      embedded `args`.
+- [ ] README commands run without manual source-code edits — verified by
+      the smoke tests in this repo's development history; re-verify on
+      your final environment before submitting.
+- [ ] PSNR, SSIM, LPIPS reported — `evaluate.py` output.
+- [ ] Both numeric metrics and restored-image examples shown —
+      `metrics_summary.json` + `example_restorations/`.
+- [ ] End-to-end runtime, hardware, batch size, timing method stated —
+      `inference_runtime_report.json`.
+- [ ] At least one baseline and one failure case included — bicubic
+      baseline + worst-N examples, both from `evaluate.py`.
+- [ ] External data/models disclosed with links and licenses — **currently
+      N/A, none used**; update if you add any.
+- [ ] No confidential/unlicensed/inaccessible data used.
+- [ ] Submission dry-run in a clean environment — run
+      `validate_data.py` → `train.py` → `evaluate.py` → `inference.py` end
+      to end in a fresh venv/Colab runtime before final submission.
