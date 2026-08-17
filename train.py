@@ -40,13 +40,13 @@ def get_args():
     p.add_argument("--patch_size", type=int, default=64, help="NoisyLR crop size.")
     p.add_argument("--scale", type=int, default=2, help="GT resolution / NoisyLR resolution.")
     p.add_argument("--in_ch", type=int, default=1)
-    p.add_argument("--model_size", type=str, default="small", choices=["tiny", "small"])
+    p.add_argument("--model_size", type=str, default="tiny", choices=["tiny", "small"])
 
     p.add_argument("--batch_size", type=int, default=16)
     p.add_argument("--epochs", type=int, default=100)
     p.add_argument("--lr", type=float, default=2e-4)
     p.add_argument("--weight_ssim", type=float, default=0.2)
-    p.add_argument("--num_workers", type=int, default=4)
+    p.add_argument("--num_workers", type=int, default=2)
     p.add_argument("--seed", type=int, default=42)
 
     p.add_argument("--ckpt_dir", type=str, default="weights")
@@ -61,9 +61,6 @@ def get_args():
         with open(args.config, "r") as f:
             cfg = yaml.safe_load(f)
         for k, v in cfg.items():
-            # CLI-provided values (non-default) take precedence; here we only
-            # fill in values the user didn't explicitly pass. Simplicity over
-            # cleverness: config sets defaults, re-parse CLI on top of them.
             p.set_defaults(**{k: v})
         args = p.parse_args()
 
@@ -103,8 +100,6 @@ def main():
     print("Training on:", device)
     print("Config:", vars(args))
 
-    # --- Experiment tracking: save the exact config used for this run, and
-    # prepare a per-epoch CSV log (loss, val metrics, lr, wall-clock time). ---
     run_id = time.strftime("%Y%m%d_%H%M%S")
     config_path = os.path.join(args.results_dir, f"train_config_{run_id}.json")
     with open(config_path, "w") as f:
@@ -135,18 +130,30 @@ def main():
         train=True,
     )
 
-    # Clean train/val split (no leakage): split by index on the REAL pairs
-    # portion of the dataset. If you also use synth_from_gt_dir, those
-    # samples are always used for training only (val needs real GT/NoisyLR
-    # correspondence, not synthetic degradations).
     n_val = max(1, int(len(full_ds) * args.val_split)) if args.val_split > 0 else 0
     n_train = len(full_ds) - n_val
     train_ds, val_ds = random_split(
         full_ds, [n_train, n_val],
         generator=torch.Generator().manual_seed(args.seed),
     )
-    val_ds.dataset.train = True  # keep cropping consistent; for full-image val use inference.py instead
+    val_ds.dataset.train = True
     print(f"Train samples: {n_train} | Val samples: {n_val}")
+
+    if n_val > 0:
+        val_indices = val_ds.indices
+        real_ids = full_ds.real_ids
+        val_stems = [real_ids[i] for i in val_indices if i < len(real_ids)]
+        val_manifest_path = os.path.join(args.results_dir, f"val_split_{run_id}.json")
+        with open(val_manifest_path, "w") as f:
+            json.dump({
+                "seed": args.seed,
+                "val_split_fraction": args.val_split,
+                "num_val_files": len(val_stems),
+                "val_file_stems": sorted(val_stems),
+                "noisy_dir": args.noisy_dir,
+                "gt_dir": args.gt_dir,
+            }, f, indent=2)
+        print(f"Saved validation file list to: {val_manifest_path}")
 
     train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True,
                                num_workers=args.num_workers, drop_last=True)
