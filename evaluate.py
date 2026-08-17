@@ -55,7 +55,7 @@ def load_model(checkpoint_path, device):
     model = build_model(
         in_ch=cfg.get("in_ch", 1),
         scale=cfg.get("scale", 2),
-        size=cfg.get("model_size", "small"),
+        size=cfg.get("model_size", "tiny"),
     )
     model.load_state_dict(ckpt["model_state_dict"])
     model.to(device)

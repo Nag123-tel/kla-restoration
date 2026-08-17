@@ -212,7 +212,7 @@ class NAFNetSR(nn.Module):
         return base + out
 
 
-def build_model(in_ch=1, width=32, scale=2, size="small"):
+def build_model(in_ch=1, width=32, scale=2, size="tiny"):
     """Convenience factory. size in {'tiny','small','base'} trades quality
     for speed/throughput -- see README for measured runtime on your GPU."""
     configs = {

@@ -105,10 +105,17 @@ python train.py \
   --patch_size 64 \
   --batch_size 16 \
   --epochs 100 \
-  --model_size small \
+  --model_size tiny \
   --ckpt_dir weights \
   --results_dir results
 ```
+
+`tiny` (1.0M params) is what produced the submitted `weights/best.pt` checkpoint. A
+`small` (3.1M params) variant was also trained and benchmarked as a comparison — it
+scored marginally higher on PSNR/SSIM/LPIPS but at ~1.8x the inference latency; `tiny`
+was chosen as the final submission for its stronger quality/throughput trade-off (see
+the presentation, Slide 6, for the full comparison). Pass `--model_size small` if you
+want to reproduce that comparison run instead.
 
 Or via config file:
 ```bash
@@ -193,10 +200,11 @@ Point `--noisy_dir`/`--gt_dir` at a held-out validation set with known GT
 ## Design notes / limitations
 
 - The NAFNet backbone ships in `tiny` and `small` sizes (see
-  `build_model()` in `src/model.py`); `small` (~3.1M params) is the
-  default and a reasonable quality/throughput trade-off — benchmark both
-  on your validation set and report the trade-off explicitly, as required
-  by KLA's evaluation criteria.
+  `build_model()` in `src/model.py`); `tiny` (~1.0M params) is the
+  submitted default, chosen for its stronger quality/throughput trade-off
+  after benchmarking both against the validation set (`small` scored
+  marginally higher on PSNR/SSIM/LPIPS but at ~1.8x the inference latency
+  — see the presentation for the full comparison).
 - The model assumes a single, fixed upsampling `scale` (inferred from your
   GT/NoisyLR resolution ratio) for the whole dataset. `validate_data.py`
   will flag it if your dataset mixes multiple scale factors — if so,
