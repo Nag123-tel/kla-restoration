@@ -5,3 +5,5 @@ __pycache__/
 results/run_py_batched_output/
 results/run_py_gpu_test/
 results/run_py_test_output/
+__pycache__/
+*.pyc

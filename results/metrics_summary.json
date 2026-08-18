@@ -10,10 +10,10 @@
     "ssim_mean": 0.5545305039267987,
     "lpips_mean": 0.43508974662981925
   },
-  "checkpoint": "weights/best.pt",
+  "checkpoint": "models/best.pt",
   "model_params": 1002457,
   "scale": 2,
-  "eval_wall_clock_seconds": 7.457544565200806,
+  "eval_wall_clock_seconds": 9.375463247299194,
   "device": "cuda",
   "pytorch_version": "2.11.0+cu128",
   "gpu_name": "Tesla T4"
