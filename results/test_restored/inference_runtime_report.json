@@ -1,9 +1,9 @@
 {
-  "total_images": 400,
+  "total_images": 320,
   "batch_size": 8,
-  "end_to_end_runtime_seconds": 2.2303810119628906,
-  "ms_per_image": 5.575952529907227,
-  "model_load_time_seconds": 0.25565576553344727,
+  "end_to_end_runtime_seconds": 1.4276669025421143,
+  "ms_per_image": 4.461459070444107,
+  "model_load_time_seconds": 0.25893497467041016,
   "timing_method": "wall-clock time.time(), measured per batch from disk-read start through model execution, GPU->CPU transfer, and np.save() to disk (matches KLA's stated runtime definition); model-load time excluded and reported separately.",
   "device": "cuda",
   "pytorch_version": "2.11.0+cu128",
