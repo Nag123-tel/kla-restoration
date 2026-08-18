@@ -5,7 +5,6 @@ Joint denoising + super-resolution model that restores NoisyLR images
 (degraded by speckle noise, additive Gaussian noise, and downsampling, in
 an undisclosed order) back to their GT resolution and quality.
 
-## Approach summary
 
 - **Architecture**: [NAFNet](https://arxiv.org/abs/2204.04676) (Chen et al.,
   ECCV 2022, *"Simple Baselines for Image Restoration"*) encoder-decoder,
@@ -28,9 +27,7 @@ an undisclosed order) back to their GT resolution and quality.
   KLA-confirmed degradation spec, so you can generate additional
   (NoisyLR, GT) pairs from any GT-only images.
 
-## ⚠️ Mandatory submission entry point: `run.py`
-
-Per KLA's Final Submission Check announcement, the graded entry point for this submission is `run.py`, not `inference.py`. Run it exactly as:
+ `run.py`. Run it exactly as:
 
 ```bash
 python run.py <input-dir> <output-dir>
@@ -243,36 +240,5 @@ trained model's metrics on the same validation images (see above). This is
 also exactly what the model's own global residual connection uses as its
 starting point (see `NAFNetSR.forward()` in `src/model.py`).
 
-## Submission checklist (mapped to KLA's Final Submission Checklist)
 
-- [x] Solution PPT/PPTX included (`solution_presentation.pptx`) — build
-      after a full training run using `results/metrics_summary.json` and
-      `results/example_restorations/` for content.
-- [x] GitHub repository link accessible.
-- [x] Only the three official degradation mechanisms treated as benchmark
-      requirements — `src/degradations.py` implements exactly speckle +
-      Gaussian + downsampling, order-randomized.
-- [x] NoisyLR values outside [0,1] handled intentionally — not clipped
-      anywhere in the training or default inference path.
-- [x] Inference script accepts input/output directory arguments — `inference.py`.
-- [x] Training script reproduces the submitted checkpoint — `train.py`,
-      with full config saved to `results/train_config_<run_id>.json`.
-- [x] Model weights/config included — `weights/best.pt` + checkpoint's
-      embedded `args`.
-- [x] README commands run without manual source-code edits — verified by
-      the smoke tests in this repo's development history; re-verify on
-      your final environment before submitting.
-- [x] PSNR, SSIM, LPIPS reported — `evaluate.py` output.
-- [x] Both numeric metrics and restored-image examples shown —
-      `metrics_summary.json` + `example_restorations/`.
-- [x] End-to-end runtime, hardware, batch size, timing method stated —
-      `inference_runtime_report.json`.
-- [x] At least one baseline and one failure case included — bicubic
-      baseline + worst-N examples, both from `evaluate.py`.
-- [x] External data/models disclosed with links and licenses — **currently
-      N/A, none used**; update if you add any.
-- [x] No confidential/unlicensed/inaccessible data used.
-- [x] Submission dry-run in a clean environment — run
-      `validate_data.py` → `train.py` → `evaluate.py` → `inference.py` end
-      to end in a fresh venv/Colab runtime before final submission.
 
