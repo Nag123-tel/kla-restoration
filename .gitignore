@@ -7,3 +7,7 @@ results/run_py_gpu_test/
 results/run_py_test_output/
 __pycache__/
 *.pyc
+results/test_restored/*.npy
+results/run_py_test_output/
+results/run_py_gpu_test/
+results/run_py_batched_output/
