@@ -28,6 +28,23 @@ an undisclosed order) back to their GT resolution and quality.
   KLA-confirmed degradation spec, so you can generate additional
   (NoisyLR, GT) pairs from any GT-only images.
 
+## ⚠️ Mandatory submission entry point: `run.py`
+
+Per KLA's Final Submission Check announcement, the graded entry point for this submission is `run.py`, not `inference.py`. Run it exactly as:
+
+```bash
+python run.py <input-dir> <output-dir>
+```
+
+- Positional arguments only, no flags.
+- Reads every `.npy` file in `<input-dir>`, creates `<output-dir>` if missing.
+- Writes one restored `.npy` file per input file, same filename.
+- Output shape `(H, W)`, values in `[0,1]`, NaN/Inf sanitized.
+- Checkpoint loaded from `models/best.pt` (local only, no internet).
+- Runs on GPU if available, batches by shape (batch size 8), falls back to CPU / batch size 1.
+
+`inference.py` remains the dev/eval script (configurable, timing reports, un-clipped output) — it is not the graded script.
+
 ## Repository structure
 
 ```
@@ -257,20 +274,3 @@ starting point (see `NAFNetSR.forward()` in `src/model.py`).
       `validate_data.py` → `train.py` → `evaluate.py` → `inference.py` end
       to end in a fresh venv/Colab runtime before final submission.
 
-
-## ⚠️ Mandatory submission entry point: `run.py`
-
-Per KLA's Final Submission Check announcement, the graded entry point for this submission is `run.py`, not `inference.py`. Run it exactly as:
-
-```bash
-python run.py <input-dir> <output-dir>
-```
-
-- Positional arguments only, no flags.
-- Reads every `.npy` file in `<input-dir>`, creates `<output-dir>` if missing.
-- Writes one restored `.npy` file per input file, same filename.
-- Output shape `(H, W)`, values in `[0,1]`, NaN/Inf sanitized.
-- Checkpoint loaded from `models/best.pt` (local only, no internet).
-- Runs on GPU if available, batches by shape (batch size 8), falls back to CPU / batch size 1.
-
-`inference.py` remains the dev/eval script (configurable, timing reports, un-clipped output) — it is not the graded script.
