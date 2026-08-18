@@ -13,7 +13,7 @@
   "checkpoint": "models/best.pt",
   "model_params": 1002457,
   "scale": 2,
-  "eval_wall_clock_seconds": 9.375463247299194,
+  "eval_wall_clock_seconds": 9.62328553199768,
   "device": "cuda",
   "pytorch_version": "2.11.0+cu128",
   "gpu_name": "Tesla T4"

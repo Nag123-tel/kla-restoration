@@ -1,15 +1,15 @@
 {
-  "total_images": 400,
+  "total_images": 320,
   "batch_size": 8,
-  "end_to_end_runtime_seconds": 3.020570755004883,
-  "ms_per_image": 7.551426887512207,
-  "model_load_time_seconds": 0.2664508819580078,
+  "end_to_end_runtime_seconds": 4.904071569442749,
+  "ms_per_image": 15.32522365450859,
+  "model_load_time_seconds": 0.26586246490478516,
   "timing_method": "wall-clock time.time(), measured per batch from disk-read start through model execution, GPU->CPU transfer, and np.save() to disk (matches KLA's stated runtime definition); model-load time excluded and reported separately.",
   "device": "cuda",
   "pytorch_version": "2.11.0+cu128",
   "cuda_available": true,
   "gpu_name": "Tesla T4",
   "cuda_version": "12.8",
-  "checkpoint": "weights/best.pt",
+  "checkpoint": "models/best.pt",
   "output_clipped": false
 }
