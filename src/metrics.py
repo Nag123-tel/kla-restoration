@@ -1,6 +1,6 @@
 """
 PSNR, SSIM, LPIPS metrics for validation and reporting, as required by the
-KLA problem statement (Section 4.D: "Report PSNR, SSIM and LPIPS").
+KLA problem statement.
 
 LPIPS requires the `lpips` package (pip install lpips) and downloads a
 small pretrained AlexNet/VGG feature extractor on first use -- this needs

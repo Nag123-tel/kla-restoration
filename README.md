@@ -212,16 +212,13 @@ Point `--noisy_dir`/`--gt_dir` at a held-out validation set with known GT
   separate checkpoints per scale and route inputs by shape in
   `inference.py` (the shape-grouping logic is already there to build on).
 - **No pretrained/external weights or public datasets are used** in this
-  reference implementation. If you add any (e.g. pretrained
-  NAFNet/Restormer weights, extra public training data), disclose name,
-  link, and license per KLA's requirement — update this section
-  accordingly before submission.
+  reference implementation. 
 - LPIPS requires `pip install lpips` and a one-time download of a small
   pretrained feature extractor (needs internet access once).
 
 ## Baseline comparison
 
-The required baseline (Section 4.D) is bicubic upsampling with no
+The required baseline is bicubic upsampling with no
 denoising at all — `evaluate.py` computes this automatically alongside the
 trained model's metrics on the same validation images (see above). This is
 also exactly what the model's own global residual connection uses as its

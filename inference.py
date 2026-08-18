@@ -8,9 +8,7 @@ Mandatory behavior (per problem statement Section 4.C):
   - supports NVIDIA GPU execution, batches when memory permits
   - does not require editing source code / paths
   - does not clip or renormalize outputs unless done inside this pipeline
-    (KLA scores exactly what is saved -- we intentionally do NOT clip here,
-    since KLA said they do not clip/renormalize on their end either; if you
-    want clipped outputs for visual sanity checks, use --clip)
+    ( if you want clipped outputs for visual sanity checks, use --clip)
 
 Usage:
     python inference.py --input_dir /path/to/NoisyLR --output_dir /path/to/restored \
@@ -136,8 +134,7 @@ def main():
     print(f"(Model load time, reported separately, not included above: {t_load_model:.2f}s)")
     print(f"Outputs written to: {args.output_dir}")
 
-    # Write a runtime report for the submission (KLA Section 4.D: report
-    # end-to-end runtime, batch size, hardware, software versions, timing method).
+    # Write a runtime report for the submission 
     report = {
         "total_images": total_images,
         "batch_size": args.batch_size,
